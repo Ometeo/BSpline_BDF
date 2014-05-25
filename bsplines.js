@@ -8,23 +8,26 @@ if (!ctx) {
 //interaction
 var dragging = false;
 var pointIndex = 0;
-var order = 3;
 
-//points
+//points & curve
 var points = new Array();
 var curve;
 var p;
+var nodes = new Array();
+
+//options
+var firstEndpoint = false;
+var lastEndpoint = false;
+var cyclic = true;
+var order = 2;
+var resolution = 50;
 
 //display
-var handleSize = 8;
+var handleSize = 12;
 var halfHandleSize = handleSize / 2;
 var pointSize = 4;
-var resolution = 5;
-var constructionT = 0;
 var displayCurve = true;
-var displayPoly = true;
-var displayConstruction = true;
-var constructionPoint = true;
+var displayPoly = false;
 
 /**
  * 
@@ -83,16 +86,106 @@ function drawPoly(poly, lineWidth, color) {
     ctx.stroke();
 }
 
-function processBsplineCurve(poly) {
-    var iterations = resolution * poly.length;
-    var step = 1.0 / iterations;
-    var t = 0;
-    curve = new Array();
-    
-    
-    for (var r = 0; r < iterations + 1; r++) {
-        curve.push(coxDeBoor(poly, t));
+/**
+ * @param {Array} poly
+ * @param {int} t
+ * @param {int} r
+ * @returns {undefined}
+ */
+function coxDeBoor(poly, t, r) {
+
+    p = new Array();
+
+    p.push(new Array());
+
+    for (var i = r - order; i <= r; ++i) {
+        p[0][i] = poly[i];
+    }
+    for (var j = 1; j <= order; j++) {
+        p.push(new Array());
+        for (var i = r - order + j; i <= r; ++i) {
+            var denominator = nodes[i - j + order + 1] - nodes[i];
+
+            var x = (t - nodes[i]) * p[j - 1][i].x + (nodes[i - j + order + 1] - t) * p[j - 1][i - 1].x;
+            var y = (t - nodes[i]) * p[j - 1][i].y + (nodes[i - j + order + 1] - t) * p[j - 1][i - 1].y;
+
+            x /= denominator;
+            y /= denominator;
+
+            var point = {x: x, y: y};
+
+            p[j][i] = point;
+        }
+    }
+
+    return p[order][r];
+}
+
+function processSubSpline(poly, r) {
+
+    var tbegin = nodes[r];
+    var tend = nodes[r + 1];
+    var t = tbegin;
+
+    var step = (tend - tbegin) / resolution;
+
+    for (var i = 0; i <= resolution; ++i) {
+        curve = curve.concat(coxDeBoor(poly, t, r));
         t += step;
+    }
+}
+
+function initNodes(poly) {
+
+    var firstNodesCount = 0;
+    var lastNodesCount = 0;
+    var middleNodesCount;
+
+    if (firstEndpoint) {
+        firstNodesCount = order;
+    }
+    if (lastEndpoint) {
+        lastNodesCount = order + 1;
+    }
+
+    middleNodesCount = poly.length + 1 + order - firstNodesCount - lastNodesCount;
+
+    for (var i = 0; i < firstNodesCount; ++i) {
+        nodes.push(0);
+    }
+
+    for (var i = 0; i < middleNodesCount; ++i) {
+        nodes.push(i);
+    }
+
+    for (var j = 0; j < lastNodesCount; ++j) {
+        nodes.push(i);
+    }
+}
+
+function processBsplineCurve(poly) {
+
+    var polyline = new Array();
+
+    for (var i = 0; i < poly.length; ++i)
+        polyline.push(poly[i]);
+
+    if (cyclic) {
+        for (var i = 0; i < order; ++i) {
+            polyline.push(poly[i]);
+        }
+    }
+
+    var subcurves = polyline.length - order;
+    curve = new Array();
+
+    //init nodes
+    nodes = new Array();
+    initNodes(polyline);
+
+    //loop over each sub-spline
+    for (var r = order; r < subcurves + order; ++r) {
+        processSubSpline(polyline, r);
     }
 }
 
@@ -111,37 +204,6 @@ function getPointAt(p1, p2, t) {
     };
 }
 
-/**
- * @param {Array} poly
- * @param {int} t
- * @returns {undefined}
- */
-function coxDeBoor(poly, t) {
-    p = new Array();
-    var n = poly.length;
-    p.push(poly);
-
-    for (i = 1; i < order; i++) {
-//        p.push(new Array());
-//        var lastLevel = p[i - 1];
-//        for (j = 0; j < n - i; j++) {
-//            p[i].push(getPointAt(lastLevel[j], lastLevel[j + 1], t));
-//        }
-    }
-
-    return p[n - 1][0];
-}
-
-function drawConstructionAt(poly, t) {
-    coxDeBoor(poly, t);
-    var c = "rgba(0, 0, 200, alpha)";
-    for (var i = 1; i < p.length; i++) {
-        var col = c.replace(/alpha/g, '')
-        drawPoly(p[i], 1, col);
-        drawPointsAsCircles(p[i]);
-    }
-}
-
 function toggleDisplayCurve() {
     displayCurve = !displayCurve;
     draw();
@@ -152,32 +214,21 @@ function toggleDisplayPoly() {
     draw();
 }
 
-function toggleDisplayConstruction() {
-    displayConstruction = !displayConstruction;
-    draw();
-}
-
 function updateResolution(res) {
     resolution = res;
     processBsplineCurve(points);
     draw();
 }
 
-function updateConstructionT(t) {
-    constructionT = t;
-    draw();
-}
-
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (points.length > 1) {
-        if (displayCurve)
-            drawPoly(curve, 1, "rgb(0, 0, 0)");
-        if (displayPoly)
-            drawPoly(points, 1.5, "rgb(0, 0, 0)");
-        if (displayConstruction)
-            drawConstructionAt(points, constructionT);
+    if (displayPoly && points.length > 0) {
+        drawPoly(points, 1.5, "rgb(0, 0, 0)");
+    }
+
+    if (points.length > order) {
+        drawPoly(curve, 1, "rgb(0, 0, 0)");
     }
     drawPoints();
 }
@@ -205,7 +256,7 @@ $("canvas").mousemove(function(event) {
     if (dragging) {
         point = getMousePos(event);
         points[pointIndex] = point;
-        if (points.length > 1) {
+        if (points.length > order) {
             processBsplineCurve(points);
         }
         draw();
@@ -221,14 +272,10 @@ $("canvas").mouseup(function(event) {
     else {
         points.push(point);
     }
-    if (points.length > 1) {
+    if (points.length > order) {
         processBsplineCurve(points);
     }
     draw();
-});
-
-$("#drawConstruction").change(function() {
-    toggleDisplayConstruction();
 });
 
 $("#drawPolygon").change(function() {
@@ -238,3 +285,33 @@ $("#drawPolygon").change(function() {
 $("#drawCurve").change(function() {
     toggleDisplayCurve();
 });
+
+function setFirstEndpoint(enabled) {
+    firstEndpoint = enabled;
+}
+
+function setLastEndpoint(enabled) {
+    firstEndpoint = enabled;
+}
+
+function setCyclic(enabled) {
+    cyclic = enabled;
+}
+
+function toggleFirstEndpoint() {
+    firstEndpoint = !firstEndpoint;
+}
+
+function toggleLastEndpoint() {
+    lastEndpoint = !lastEndpoint;
+}
+
+function toggleCycliv() {
+    cyclic = ! cyclic;
+}
+
+function updateOrder(newOrder) {
+    order = newOrder;
+    processBsplineCurve(points);
+    draw();
+}

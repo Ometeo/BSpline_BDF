@@ -8,7 +8,9 @@ and open the template in the editor.
     <head>
         <meta charset="UTF-8">
         <link type="text/css" rel="stylesheet" href="bsplines.css" />
-        <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+        <script src="http://code.jquery.com/jquery-1.10.2.js"></script>
+        <script src="http://code.jquery.com/ui/1.10.4/jquery-ui.js"></script>
+        
         <title>B-splines</title>
     </head>
     <body>
@@ -18,11 +20,12 @@ and open the template in the editor.
             <p>Click on the canvas to add some points to the curve. You can drag and drop existing points using their handles.</p>
             
             <div class="page box_shadow">
-                <h2>Order/Resolution</h2>
+                <h2>Options</h2>
+                <h3>Order/Resolution</h3>
                 <label for="order">Order</label><input id="order" type="text" />
                 <label for="resolution">Resolution</label><input id="resolution" type="text" />
                 
-                <h2>Endpoints</h2>
+                <h3>Endpoints</h3>
                 <label for="first">First</label><input id="first" type="checkbox" />
                 <label for="last">Last</label><input id="last" type="checkbox" />
             </div>
