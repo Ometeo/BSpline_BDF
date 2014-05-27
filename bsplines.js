@@ -214,12 +214,6 @@ function toggleDisplayPoly() {
     draw();
 }
 
-function updateResolution(res) {
-    resolution = res;
-    processBsplineCurve(points);
-    draw();
-}
-
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -306,12 +300,32 @@ function toggleLastEndpoint() {
     lastEndpoint = !lastEndpoint;
 }
 
-function toggleCycliv() {
-    cyclic = ! cyclic;
-}
+$("#first").change(function() {
+    firstEndpoint = !firstEndpoint;
+    updateAll();
+});
 
-function updateOrder(newOrder) {
-    order = newOrder;
+function updateAll() {
     processBsplineCurve(points);
     draw();
 }
+
+function updateOrder(o) {
+    order = o;
+    updateAll();
+}
+
+function updateResolution(r) {
+    resolution = r;
+    updateAll();
+}
+
+$("#last").change(function() {
+    lastEndpoint = !lastEndpoint;
+    updateAll();
+});
+
+$("#cyclic").change(function() {
+    cyclic = !cyclic;
+    updateAll();
+});
