@@ -21,8 +21,8 @@ var nodes = new Array();
 var firstEndpoint = false;
 var lastEndpoint = false;
 var cyclic = false;
-var order = 3;
-var resolution = 50;
+var order = parseInt($("#order").val());
+var resolution = parseInt($("#resolution").val());
 
 //display
 var handleSize = 12;
@@ -127,7 +127,7 @@ function processSubSpline(poly, r) {
     var tend = nodes[r + 1];
     var t = tbegin;
 
-    var step = (tend - tbegin) / resolution;
+    var step = (tend - tbegin) / (resolution - 1);
     for (var i = 0; i < resolution; ++i) {
         curve[i + ((r - order) * resolution)] = coxDeBoor(poly, t, r);
         t += step;
@@ -197,9 +197,13 @@ function recalcCurve(poly, numPointShifted) {
 	var polyline = getPolyline(poly);
 
 	var start = Math.max(numPointShifted, order);
-	var end = Math.min(numPointShifted + (order - 1) * 2, polyline.length);
+	var end = Math.min(numPointShifted + order * 2, polyline.length);
 	
-	//console.log("from : " + start + " to " + end);
+	// sauvegarde de la courbe précédente
+	if (previousSeg.length == 0)
+		previousSeg = curve.slice((start - order) * resolution, (end - order) * resolution)
+	
+	console.log("from : " + start + " to " + end);
 	
 	for (var range = start; range < end; ++range) {
 		processSubSpline(polyline, range);
@@ -270,11 +274,6 @@ $("canvas").mousedown(function(event) {
 			switch (event.which) {
 				case 1: // Left click
 					pointIndex = i;
-					
-					var start = Math.max(pointIndex, order);
-					var end = Math.min(pointIndex + (order - 1) * 2, getPolyline(points).length);
-					
-					previousSeg = curve.slice((start - order) * resolution, (end - order) * resolution)
 					dragging = true;
 				break;
 				case 3: // right click
@@ -350,31 +349,6 @@ $("#drawCurve").change(function() {
     toggleDisplayCurve();
 });
 
-function setFirstEndpoint(enabled) {
-    firstEndpoint = enabled;
-}
-
-function setLastEndpoint(enabled) {
-    firstEndpoint = enabled;
-}
-
-function setCyclic(enabled) {
-    cyclic = enabled;
-}
-
-function toggleFirstEndpoint() {
-    firstEndpoint = !firstEndpoint;
-}
-
-function toggleLastEndpoint() {
-    lastEndpoint = !lastEndpoint;
-}
-
-$("#first").change(function() {
-    firstEndpoint = !firstEndpoint;
-    updateAll();
-});
-
 function updateAll() {
     processBsplineCurve(points);
     draw();
@@ -390,12 +364,39 @@ function updateResolution(r) {
     updateAll();
 }
 
+$("#first").change(function() {
+    firstEndpoint = !firstEndpoint;
+	
+	if (firstEndpoint)
+	{
+		cyclic = false;
+		$("#cyclic").attr("checked", cyclic);
+	}
+	
+    updateAll();
+});
+
 $("#last").change(function() {
     lastEndpoint = !lastEndpoint;
+	
+	if (lastEndpoint)
+	{
+		cyclic = false;
+		$("#cyclic").attr("checked", cyclic);
+	}
     updateAll();
 });
 
 $("#cyclic").change(function() {
     cyclic = !cyclic;
+	
+	if (cyclic)
+	{
+		firstEndpoint = lastEndpoint = false;
+		
+		$("#first").attr("checked", false);
+		$("#last").attr("checked", false);
+	}
+	
     updateAll();
 });

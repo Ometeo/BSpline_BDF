@@ -67,13 +67,13 @@ and open the template in the editor.
             <div class="page box_shadow">
                 <h2>Options</h2>
                 <h3>Precision</h3>
-                <label for="order">Order</label><input id="order" type="text" value="0" />
-                <label for="resolution">Resolution</label><input id="resolution" type="text" value="0" />
+                <label for="order">Order</label><input id="order" type="text" value="3" />
+                <label for="resolution">Resolution</label><input id="resolution" type="text" value="50" />
                 <h3>Cyclic</h3>
-                <label for="cyclic">Cyclic</label><input id="cyclic" type="checkbox" checked />
+                <label for="cyclic">Cyclic</label><input id="cyclic" type="checkbox" />
                 <h3>Endpoints</h3>
-                <label for="first">First</label><input id="first" type="checkbox" checked="false" />
-                <label for="last">Last</label><input id="last" type="checkbox" checked="false" />
+                <label for="first">First</label><input id="first" type="checkbox" />
+                <label for="last">Last</label><input id="last" type="checkbox" />
             </div>
 
             <canvas id="myCanvas" class="box_shadow" width="800px" height="500px"></canvas>
