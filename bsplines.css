@@ -40,6 +40,19 @@ body {
     overflow-y: auto;
 }
 
+label.weight {
+	display: inline-block;
+	width: 46%;
+}
+
+input.weight {
+	width: 46%;
+}
+
+.selectedInput {
+	background-color: #BDBDBD;
+}
+
 .box_shadow {
     box-shadow: 0 0 2px 2px rgba(0, 0, 0, .25);
 }

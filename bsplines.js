@@ -11,15 +11,17 @@ var pointIndex = 0;
 
 //points & curve
 var points = new Array();
+var weights = new Array();
 var curve;
+var previousSeg;
 var p;
 var nodes = new Array();
 
 //options
 var firstEndpoint = false;
 var lastEndpoint = false;
-var cyclic = true;
-var order = 2;
+var cyclic = false;
+var order = 3;
 var resolution = 50;
 
 //display
@@ -105,7 +107,6 @@ function coxDeBoor(poly, t, r) {
         p.push(new Array());
         for (var i = r - order + j; i <= r; ++i) {
             var denominator = nodes[i - j + order + 1] - nodes[i];
-
             var x = (t - nodes[i]) * p[j - 1][i].x + (nodes[i - j + order + 1] - t) * p[j - 1][i - 1].x;
             var y = (t - nodes[i]) * p[j - 1][i].y + (nodes[i - j + order + 1] - t) * p[j - 1][i - 1].y;
 
@@ -117,7 +118,6 @@ function coxDeBoor(poly, t, r) {
             p[j][i] = point;
         }
     }
-
     return p[order][r];
 }
 
@@ -128,9 +128,8 @@ function processSubSpline(poly, r) {
     var t = tbegin;
 
     var step = (tend - tbegin) / resolution;
-
-    for (var i = 0; i <= resolution; ++i) {
-        curve = curve.concat(coxDeBoor(poly, t, r));
+    for (var i = 0; i < resolution; ++i) {
+        curve[i + ((r - order) * resolution)] = coxDeBoor(poly, t, r);
         t += step;
     }
 }
@@ -163,10 +162,8 @@ function initNodes(poly) {
     }
 }
 
-function processBsplineCurve(poly) {
-
-    var polyline = new Array();
-
+function getPolyline(poly) {
+	var polyline = new Array();
     for (var i = 0; i < poly.length; ++i)
         polyline.push(poly[i]);
 
@@ -175,9 +172,15 @@ function processBsplineCurve(poly) {
             polyline.push(poly[i]);
         }
     }
+	return polyline;
+}
 
+function processBsplineCurve(poly) {
+	
+	var polyline = getPolyline(poly);
+	
     var subcurves = polyline.length - order;
-    curve = new Array();
+	curve = new Array();
 
     //init nodes
     nodes = new Array();
@@ -187,6 +190,20 @@ function processBsplineCurve(poly) {
     for (var r = order; r < subcurves + order; ++r) {
         processSubSpline(polyline, r);
     }
+}
+
+function recalcCurve(poly, numPointShifted) {
+
+	var polyline = getPolyline(poly);
+
+	var start = Math.max(numPointShifted, order);
+	var end = Math.min(numPointShifted + (order - 1) * 2, polyline.length);
+	
+	//console.log("from : " + start + " to " + end);
+	
+	for (var range = start; range < end; ++range) {
+		processSubSpline(polyline, range);
+	}
 }
 
 function delta(p1, p2) {
@@ -230,6 +247,11 @@ function draw() {
     if (points.length > order) {
         drawPoly(curve, 1, "rgb(0, 0, 0)");
     }
+	
+	if (previousSeg.length > 0) {
+		drawPoly(previousSeg, 1, "rgb(255, 0, 0)");
+	}
+	
     drawPoints();
 }
 
@@ -240,16 +262,34 @@ function isCollidingHandle(point, handlePoint) {
             point.y < handlePoint.y + halfHandleSize;
 }
 
+$("canvas").bind('contextmenu', function(){
+	// prevent context menu from displaying
+    return false;
+});
+
 $("canvas").mousedown(function(event) {
     point = getMousePos(event);
-
-    for (var i = 0; i < points.length; ++i) {
-        if (isCollidingHandle(point, points[i])) {
-            dragging = true;
-            pointIndex = i;
-            break;
-        }
-    }
+	
+	previousSeg = [];
+	for (var i = 0; i < points.length; ++i) {
+		if (isCollidingHandle(point, points[i])) {
+			switch (event.which) {
+				case 1: // Left click
+					pointIndex = i;
+					
+					var start = Math.max(pointIndex, order);
+					var end = Math.min(pointIndex + (order - 1) * 2, getPolyline(points).length);
+					
+					previousSeg = curve.slice((start - order) * resolution, (end - order) * resolution)
+					dragging = true;
+				break;
+				case 3: // right click
+					selectWeight(i);
+				break;
+			}
+			break;
+		}
+	}    
 });
 
 $("canvas").mousemove(function(event) {
@@ -257,13 +297,17 @@ $("canvas").mousemove(function(event) {
         point = getMousePos(event);
         points[pointIndex] = point;
         if (points.length > order) {
-            processBsplineCurve(points);
+			recalcCurve(points, pointIndex);
         }
         draw();
     }
 });
 
 $("canvas").mouseup(function(event) {
+
+	if (event.which == 3) // right click
+		return;
+
     point = getMousePos(event);
     if (dragging) {
         points[pointIndex] = point;
@@ -271,11 +315,37 @@ $("canvas").mouseup(function(event) {
     }
     else {
         points.push(point);
-    }
-    if (points.length > order) {
-        processBsplineCurve(points);
+		updateWeight();
+		
+		if (points.length > order) {
+			processBsplineCurve(points);
+		}
     }
     draw();
+});
+
+function updateWeight() {
+	var text = "";
+	for(var numP = 0; numP < points.length; numP++)
+	{
+		var id = 'pWeight_' + numP;
+		text += '<label class="weight" for="' + id + '">Point ' + (numP + 1) + ' :</label><input type="number" class="weight" id="' + id + '" min="0" max="1" index="' + numP + '" step="0.1" value="' + weights[numP] + '"/>';
+	}
+	$("#rightscroll").html(text);
+};
+
+function selectWeight(numPoint) {
+	$input = $("#pWeight_" + numPoint);
+	$input.addClass("selectedInput")
+	setTimeout(function() {
+		$input.removeClass("selectedInput");
+	}, 800);
+}
+
+$(document).on('change', "input.weight", function () {
+	$this = $(this);
+	var index = $this.attr('index');
+	weights[index] = $this.val();
 });
 
 $("#drawPolygon").change(function() {

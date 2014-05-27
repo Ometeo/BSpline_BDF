@@ -34,10 +34,7 @@ and open the template in the editor.
             <script src="bsplines.js"></script>
             
             <div id="rightscroll" class="page box_shadow">
-                <?php
-                for($i=0; $i < 100; ++$i)
-                    echo 'nyan<br/>';
-                ?>
+                
             </div>
 
             </div>
