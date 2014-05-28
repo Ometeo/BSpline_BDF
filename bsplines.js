@@ -11,8 +11,7 @@ var pointIndex = 0;
 
 //points & curve
 var points = new Array();
-var weights = new Array();
-var totalWeight = 0;
+var duplicate = new Array();
 var knots = new Array();
 var curve;
 var previousSeg;
@@ -138,7 +137,7 @@ function processSubSpline(poly, r) {
     }
 }
 
-function initNodes(poly) {
+function initKnots(poly) {
 
     var firstNodesCount = 0;
     var lastNodesCount = 0;
@@ -154,23 +153,31 @@ function initNodes(poly) {
     middleNodesCount = poly.length + 1 + order - firstNodesCount - lastNodesCount;
 
     for (var i = 0; i < firstNodesCount; ++i) {
-        nodes.push(0);
+        knots.push(0);
     }
 
     for (var i = 0; i < middleNodesCount; ++i) {
-        nodes.push(i);
+        knots.push(i);
     }
 
     for (var j = 0; j < lastNodesCount; ++j) {
-        nodes.push(i);
+        knots.push(i);
     }
 }
 
 function getPolyline(poly) {
     var polyline = new Array();
-    for (var i = 0; i < poly.length; ++i)
-        polyline.push(poly[i]);
-
+    for (var i = 0; i < poly.length; ++i) {
+		j = duplicate[i];
+		if (duplicate[i] === undefined)
+			j = 1;
+		polyline.push(poly[i]);
+		while (j > 1) {
+			polyline.push(poly[i]);
+			--j;
+		}
+	}
+		
     if (cyclic) {
         for (var i = 0; i < order; ++i) {
             polyline.push(poly[i]);
@@ -281,7 +288,7 @@ $("canvas").mousedown(function(event) {
                     dragging = true;
                     break;
                 case 3: // right click
-                    selectWeight(i);
+                    selectDuplicate(i);
                     break;
             }
             break;
@@ -303,17 +310,20 @@ $("canvas").mousemove(function(event) {
 function updateKnots() {
     $("#knots").html("<h2>Knots</h2>");
     knots = new Array();
-    for(var i = 0; i < points.length + order + 1; ++i) {
+	initKnots(getPolyline(points));
+	
+    for(var i = 0; i < knots.length; ++i) {
         var knotId = "knot" + i;
-        knots.push(i)
-        $("#knots").append("<label for=\"" + knotId + "\">Knot " + i + "</label><input id=\"" + knotId + "\" type=\"range\" min=\"0\" max=\"20\" value=\"" + i +"\" step=\".01\" oninput=\"updateKnot(" + i + ", this.value)\" /><br/>");
+        //knots.push(i)
+        $("#knots").append("<label for=\"" + knotId + "\">Knot " + i + "</label><input id=\"" + knotId + "\" type=\"range\" min=\"0\" max=\"20\" value=\"" + knots[i] +"\" step=\".01\" oninput=\"updateKnot(" + knots[i] + ", this.value)\" /><br/>");
     }
 }
 
 function updateKnot(index, value) {
     console.debug(knots);
     knots[index] = parseFloat(value);
-    updateAll();
+    processBsplineCurve(points);
+	draw();
 }
 
 $("canvas").mouseup(function(event) {
@@ -328,10 +338,8 @@ $("canvas").mouseup(function(event) {
     }
     else {
         points.push(point);
-        weights.push(1);
-        totalWeight += 1;
-        updateWeight();
         updateKnots();
+		updateDuplicate();
 
         if (points.length > order) {
             processBsplineCurve(points);
@@ -340,40 +348,35 @@ $("canvas").mouseup(function(event) {
     draw();
 });
 
-function updateWeight() {
+function updateDuplicate() {
     var text = "";
     for (var numP = 0; numP < points.length; numP++)
     {
-        var id = 'pWeight_' + numP;
-        text += '<label class="weight" for="' + id + '">Point ' + (numP + 1) + ' :</label><input type="number" class="weight" id="' + id + '" min="0" max="1" index="' + numP + '" step="0.1" value="' + weights[numP] + '"/><br/>';
+        var id = 'pDupli_' + numP;
+		if (duplicate[numP] === undefined)
+			duplicate[numP] = 1;
+        text += '<label class="duplicate" for="' + id + '">Point ' + (numP + 1) + ' :</label><input type="number" class="duplicate" id="' + id + '" min="1" max="' + order + '" index="' + numP + '" value="' + duplicate[numP] + '"/><br/>';
     }
     $("#rightscroll").html(text);
 };
 
-function selectWeight(numPoint) {
-    $input = $("#pWeight_" + numPoint);
+function selectDuplicate(numPoint) {
+	duplicate[numPoint] = duplicate[numPoint] == order ? 1 : order;
+    $input = $("#pDupli_" + numPoint);
+	$input.val(duplicate[numPoint]);
     $input.addClass("selectedInput")
     setTimeout(function() {
         $input.removeClass("selectedInput");
-    }, 800);
+		updateAll();
+    }, 500);
 }
 
-function sumWeights() {
-    totalWeight = 0;
-    for(var i = 0; i < weights.length; ++i) {
-        totalWeight += weights[i];
-    }
-}
-
-$(document).on('change', "input.weight", function() {
-    $this = $(this);
+$(document).on('change', "input.duplicate", function() {
+	$this = $(this);
     var index = $this.attr('index');
-    //update total
-    var lastWeight = weights[index];
-    var newWeight =  $this.val();
-    totalWeight += newWeight - lastWeight;
     //update weight
-    weights[index] = newWeight;
+    duplicate[index] = $this.val();
+	updateAll();
 });
 
 $("#drawPolygon").change(function() {
@@ -385,6 +388,7 @@ $("#drawCurve").change(function() {
 });
 
 function updateAll() {
+	updateKnots();
     processBsplineCurve(points);
     draw();
 }
@@ -407,7 +411,6 @@ $("#first").change(function() {
         cyclic = false;
         $("#cyclic").attr("checked", cyclic);
     }
-
     updateAll();
 });
 
@@ -432,6 +435,5 @@ $("#cyclic").change(function() {
         $("#first").attr("checked", false);
         $("#last").attr("checked", false);
     }
-
-    updateAll();
+	updateAll();
 });

@@ -40,12 +40,12 @@ body {
     overflow-y: auto;
 }
 
-label.weight {
+label.duplicate {
 	display: inline-block;
 	width: 46%;
 }
 
-input.weight {
+input.duplicate {
 	width: 46%;
 }
 

@@ -47,7 +47,7 @@ and open the template in the editor.
                 <h2>Options</h2>
                 <h3>Precision</h3>
                 <label for="order">Order</label><input id="order" type="text" value="3" />
-                <label for="resolution">Resolution</label><input id="resolution" type="text" value="50" />
+                <label for="resolution">Resolution</label><input id="resolution" type="text" value="20" />
                 <h3>Cyclic</h3>
                 <label for="cyclic">Cyclic</label><input id="cyclic" type="checkbox" />
                 <h3>Endpoints</h3>
