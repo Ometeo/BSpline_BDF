@@ -42,11 +42,11 @@ body {
 
 label.duplicate {
 	display: inline-block;
-	width: 46%;
+	width: 40%;
 }
 
 input.duplicate {
-	width: 46%;
+	width: 40%;
 }
 
 .selectedInput {

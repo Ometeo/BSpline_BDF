@@ -211,10 +211,13 @@ function recalcCurve(poly, numPointShifted) {
     var end = Math.min(numPointShifted + order * 2, polyline.length);
 
     // sauvegarde de la courbe précédente
-    if (previousSeg.length == 0)
+    if (previousSeg.length == 0 && curve !== undefined) {
         previousSeg = curve.slice((start - order) * resolution, (end - order) * resolution)
-
-    console.log("from : " + start + " to " + end);
+	}
+	
+	if (curve === undefined)
+		curve = Array();
+    //console.log("[" + start + ", " + end + "[");
 
     for (var range = start; range < end; ++range) {
         processSubSpline(polyline, range);
@@ -342,7 +345,8 @@ $("canvas").mouseup(function(event) {
 		updateDuplicate();
 
         if (points.length > order) {
-            processBsplineCurve(points);
+            //recalcCurve(points, points.length - 1);
+			processBsplineCurve(points);
         }
     }
     draw();
@@ -355,10 +359,19 @@ function updateDuplicate() {
         var id = 'pDupli_' + numP;
 		if (duplicate[numP] === undefined)
 			duplicate[numP] = 1;
-        text += '<label class="duplicate" for="' + id + '">Point ' + (numP + 1) + ' :</label><input type="number" class="duplicate" id="' + id + '" min="1" max="' + order + '" index="' + numP + '" value="' + duplicate[numP] + '"/><br/>';
+        text += '<label class="duplicate" for="' + id + '">Point ' + (numP + 1) + ' :</label><input type="number" class="duplicate" id="' + id + '" min="1" max="' + order + '" index="' + numP + '" value="' + duplicate[numP] + '"/><button type="button" onclick="delPoint(' + numP +')">-</button><br/>';
     }
     $("#rightscroll").html(text);
 };
+
+function delPoint(index)
+{
+	duplicate.splice(index, 1);
+	points.splice(index, 1);
+	
+	updateAll();
+	updateDuplicate();
+}
 
 function selectDuplicate(numPoint) {
 	duplicate[numPoint] = duplicate[numPoint] == order ? 1 : order;
@@ -375,7 +388,7 @@ $(document).on('change', "input.duplicate", function() {
 	$this = $(this);
     var index = $this.attr('index');
     //update weight
-    duplicate[index] = $this.val();
+	duplicate[index] = $this.val();
 	updateAll();
 });
 
