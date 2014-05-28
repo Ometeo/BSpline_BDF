@@ -35,6 +35,10 @@ and open the template in the editor.
 
                 $("button").button();
             });
+			$(document).ready(function() {
+				$( "#order" ).spinner({ min: 1 });
+				$( "#resolution" ).spinner({ min: 1 });
+			});
         </script>
     </head>
     <body>
@@ -48,11 +52,13 @@ and open the template in the editor.
                 <h3>Precision</h3>
                 <label for="order">Order</label><input id="order" type="text" value="3" />
                 <label for="resolution">Resolution</label><input id="resolution" type="text" value="20" />
-                <h3>Cyclic</h3>
-                <label for="cyclic">Cyclic</label><input id="cyclic" type="checkbox" />
+                <h3>Esthetic</h3>
+				<label for="trace">Trace</label><input id="trace" type="checkbox" checked="checked" />
                 <h3>Endpoints</h3>
+				<label for="cyclic">Cyclic</label><input id="cyclic" type="checkbox" />
                 <label for="first">First</label><input id="first" type="checkbox" />
                 <label for="last">Last</label><input id="last" type="checkbox" />
+                
             </div>
 
             <canvas id="myCanvas" class="box_shadow" width="800px" height="500px"></canvas>

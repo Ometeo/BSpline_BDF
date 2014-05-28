@@ -19,6 +19,7 @@ var p;
 var nodes = new Array();
 
 //options
+var trace = $("#trace").is(":checked");
 var firstEndpoint = false;
 var lastEndpoint = false;
 var cyclic = false;
@@ -32,6 +33,9 @@ var pointSize = 4;
 var displayCurve = true;
 var displayPoly = false;
 
+
+//{ ---------- INTERACTIONS ----------
+
 /**
  * 
  * @param {type} evt
@@ -44,6 +48,91 @@ function getMousePos(evt) {
         y: evt.clientY - rect.top
     };
 }
+
+function delta(p1, p2) {
+    return {
+        x: p2.x - p1.x,
+        y: p2.y - p1.y
+    };
+}
+
+function getPointAt(p1, p2, t) {
+    var diff = delta(p1, p2);
+    return {
+        x: diff.x * t + p1.x,
+        y: diff.y * t + p1.y
+    };
+}
+
+function isCollidingHandle(point, handlePoint) {
+    return point.x > handlePoint.x - halfHandleSize &&
+            point.x < handlePoint.x + halfHandleSize &&
+            point.y > handlePoint.y - halfHandleSize &&
+            point.y < handlePoint.y + halfHandleSize;
+}
+
+$("canvas").bind('contextmenu', function() {
+    // prevent context menu from displaying
+    return false;
+});
+
+$("canvas").mousedown(function(event) {
+    point = getMousePos(event);
+
+    previousSeg = [];
+    for (var i = 0; i < points.length; ++i) {
+        if (isCollidingHandle(point, points[i])) {
+            switch (event.which) {
+                case 1: // Left click
+                    pointIndex = i;
+                    dragging = true;
+                    break;
+                case 3: // right click
+                    selectDuplicate(i);
+                    break;
+            }
+            break;
+        }
+    }
+});
+
+$("canvas").mousemove(function(event) {
+    if (dragging) {
+        point = getMousePos(event);
+        points[pointIndex] = point;
+        if (points.length > order) {
+            recalcCurve(points, pointIndex);
+        }
+        draw();
+    }
+});
+
+$("canvas").mouseup(function(event) {
+
+    if (event.which === 3) // right click
+        return;
+
+    point = getMousePos(event);
+    if (dragging) {
+        points[pointIndex] = point;
+        dragging = false;
+    }
+    else {
+        points.push(point);
+        updateKnots();
+		updateDuplicate();
+
+        if (points.length > order) {
+            //recalcCurve(points, points.length - 1);
+			processBsplineCurve(points);
+        }
+    }
+    draw();
+});
+
+//}
+
+//{ ---------- DRAWING ----------
 
 function drawPoints() {
     ctx.beginPath();
@@ -89,54 +178,29 @@ function drawPoly(poly, lineWidth, color) {
     ctx.stroke();
 }
 
-/**
- * @param {Array} poly
- * @param {int} t
- * @param {int} r
- * @returns {undefined}
- */
-function coxDeBoor(poly, t, r) {
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    p = new Array();
-    p.push(new Array());
-    for (var i = r - order; i <= r; ++i) {
-        p[0][i] = poly[i];
+    if (displayPoly && points.length > 0) {
+        drawPoly(points, 1.5, "rgb(0, 0, 0)");
     }
-    for (var j = 1; j <= order; j++) {
-        p.push(new Array());
-        for (var i = r - order + j; i <= r; ++i) {
-            var denominator = knots[i - j + order + 1] - knots[i];
-            
-            
-            var x = (t - knots[i]) * p[j - 1][i].x + (knots[i - j + order + 1] - t) * p[j - 1][i - 1].x;
-            var y = (t - knots[i]) * p[j - 1][i].y + (knots[i - j + order + 1] - t) * p[j - 1][i - 1].y;
 
-            x /= denominator;
-            y /= denominator;
-
-            var point = {x: x, y: y};
-
-            p[j][i] = point;
-        }
+    if (points.length > order) {
+        drawPoly(curve, 1, "rgb(0, 0, 0)");
     }
-    
-    return p[order][r];
+
+	if (trace) {
+		if (previousSeg.length > 0) {
+			drawPoly(previousSeg, 1, "rgb(255, 0, 0)");
+		}
+	}
+    drawPoints();
 }
 
-function processSubSpline(poly, r) {
+//}
 
-    var tbegin = knots[r];
-    var tend = knots[r + 1];
-    var t = tbegin;
-    var step = (tend - tbegin) / (resolution - 1);
-    var curveBegin = (r - order) * resolution;
-    
-    for (var i = 0; i < resolution; ++i) {
-        curve[i + curveBegin] = coxDeBoor(poly, t, r);
-        t += step;
-    }
-}
 
+//{ ---------- ALGORITHM ----------
 function initKnots(poly) {
 
     var firstNodesCount = 0;
@@ -224,91 +288,63 @@ function recalcCurve(poly, numPointShifted) {
     }
 }
 
-function delta(p1, p2) {
-    return {
-        x: p2.x - p1.x,
-        y: p2.y - p1.y
-    };
-}
+function processSubSpline(poly, r) {
 
-function getPointAt(p1, p2, t) {
-    var diff = delta(p1, p2);
-    return {
-        x: diff.x * t + p1.x,
-        y: diff.y * t + p1.y
-    };
-}
-
-function toggleDisplayCurve() {
-    displayCurve = !displayCurve;
-    draw();
-}
-
-function toggleDisplayPoly() {
-    displayPoly = !displayPoly;
-    draw();
-}
-
-function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    if (displayPoly && points.length > 0) {
-        drawPoly(points, 1.5, "rgb(0, 0, 0)");
+    var tbegin = knots[r];
+    var tend = knots[r + 1];
+    var t = tbegin;
+    var step = (tend - tbegin) / (resolution - 1);
+    var curveBegin = (r - order) * resolution;
+    
+    for (var i = 0; i < resolution; ++i) {
+        curve[i + curveBegin] = coxDeBoor(poly, t, r);
+        t += step;
     }
-
-    if (points.length > order) {
-        drawPoly(curve, 1, "rgb(0, 0, 0)");
-    }
-
-    if (previousSeg.length > 0) {
-        drawPoly(previousSeg, 1, "rgb(255, 0, 0)");
-    }
-
-    drawPoints();
 }
 
-function isCollidingHandle(point, handlePoint) {
-    return point.x > handlePoint.x - halfHandleSize &&
-            point.x < handlePoint.x + halfHandleSize &&
-            point.y > handlePoint.y - halfHandleSize &&
-            point.y < handlePoint.y + halfHandleSize;
-}
+/**
+ * @param {Array} poly
+ * @param {int} t
+ * @param {int} r
+ * @returns {undefined}
+ */
+function coxDeBoor(poly, t, r) {
 
-$("canvas").bind('contextmenu', function() {
-    // prevent context menu from displaying
-    return false;
-});
+    p = new Array();
+    p.push(new Array());
+    for (var i = r - order; i <= r; ++i) {
+        p[0][i] = poly[i];
+    }
+    for (var j = 1; j <= order; j++) {
+        p.push(new Array());
+        for (var i = r - order + j; i <= r; ++i) {
+            var denominator = knots[i - j + order + 1] - knots[i];
+            
+            
+            var x = (t - knots[i]) * p[j - 1][i].x + (knots[i - j + order + 1] - t) * p[j - 1][i - 1].x;
+            var y = (t - knots[i]) * p[j - 1][i].y + (knots[i - j + order + 1] - t) * p[j - 1][i - 1].y;
 
-$("canvas").mousedown(function(event) {
-    point = getMousePos(event);
+            x /= denominator;
+            y /= denominator;
 
-    previousSeg = [];
-    for (var i = 0; i < points.length; ++i) {
-        if (isCollidingHandle(point, points[i])) {
-            switch (event.which) {
-                case 1: // Left click
-                    pointIndex = i;
-                    dragging = true;
-                    break;
-                case 3: // right click
-                    selectDuplicate(i);
-                    break;
-            }
-            break;
+            var point = {x: x, y: y};
+
+            p[j][i] = point;
         }
     }
-});
+    
+    return p[order][r];
+}
+//}
 
-$("canvas").mousemove(function(event) {
-    if (dragging) {
-        point = getMousePos(event);
-        points[pointIndex] = point;
-        if (points.length > order) {
-            recalcCurve(points, pointIndex);
-        }
-        draw();
-    }
-});
+
+//{ ---------- UPDATES ----------
+function updateAll() {
+	$( "#order" ).spinner( "option", "max", points.length - 1 );
+	updateKnots();
+    processBsplineCurve(points);
+    draw();
+}
 
 function updateKnots() {
     $("#knots").html("<h2>Knots</h2>");
@@ -329,29 +365,6 @@ function updateKnot(index, value) {
 	draw();
 }
 
-$("canvas").mouseup(function(event) {
-
-    if (event.which === 3) // right click
-        return;
-
-    point = getMousePos(event);
-    if (dragging) {
-        points[pointIndex] = point;
-        dragging = false;
-    }
-    else {
-        points.push(point);
-        updateKnots();
-		updateDuplicate();
-
-        if (points.length > order) {
-            //recalcCurve(points, points.length - 1);
-			processBsplineCurve(points);
-        }
-    }
-    draw();
-});
-
 function updateDuplicate() {
     var text = "";
     for (var numP = 0; numP < points.length; numP++)
@@ -363,6 +376,7 @@ function updateDuplicate() {
     }
     $("#rightscroll").html(text);
 };
+//}
 
 function delPoint(index)
 {
@@ -381,7 +395,7 @@ function selectDuplicate(numPoint) {
     setTimeout(function() {
         $input.removeClass("selectedInput");
 		updateAll();
-    }, 500);
+    }, 400);
 }
 
 $(document).on('change', "input.duplicate", function() {
@@ -400,12 +414,6 @@ $("#drawCurve").change(function() {
     toggleDisplayCurve();
 });
 
-function updateAll() {
-	updateKnots();
-    processBsplineCurve(points);
-    draw();
-}
-
 function updateOrder(o) {
     order = o;
     updateAll();
@@ -414,6 +422,16 @@ function updateOrder(o) {
 function updateResolution(r) {
     resolution = r;
     updateAll();
+}
+
+function toggleDisplayCurve() {
+    displayCurve = !displayCurve;
+    draw();
+}
+
+function toggleDisplayPoly() {
+    displayPoly = !displayPoly;
+    draw();
 }
 
 $("#first").change(function() {
@@ -448,5 +466,11 @@ $("#cyclic").change(function() {
         $("#first").attr("checked", false);
         $("#last").attr("checked", false);
     }
+	updateAll();
+});
+
+$("#trace").change(function() {
+	previousSeg = [];
+	trace = !trace;
 	updateAll();
 });
