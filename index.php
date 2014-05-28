@@ -33,27 +33,6 @@ and open the template in the editor.
                     }
                 });
 
-//                $("#disable").click(function() {
-//                    if (spinner.spinner("option", "disabled")) {
-//                        spinner.spinner("enable");
-//                    } else {
-//                        spinner.spinner("disable");
-//                    }
-//                });
-//                $("#destroy").click(function() {
-//                    if (spinner.data("ui-spinner")) {
-//                        spinner.spinner("destroy");
-//                    } else {
-//                        spinner.spinner();
-//                    }
-//                });
-//                $("#getvalue").click(function() {
-//                    alert(spinner.spinner("value"));
-//                });
-//                $("#setvalue").click(function() {
-//                    spinner.spinner("value", 5);
-//                });
-
                 $("button").button();
             });
         </script>
@@ -80,6 +59,10 @@ and open the template in the editor.
             <script src="bsplines.js"></script>
 
             <div id="rightscroll" class="page box_shadow">
+            </div>
+            
+            <div id="knots" class="page box_shadow">
+                <h2>Knots</h2>
             </div>
 
         </div>

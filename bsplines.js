@@ -12,6 +12,8 @@ var pointIndex = 0;
 //points & curve
 var points = new Array();
 var weights = new Array();
+var totalWeight = 0;
+var knots = new Array();
 var curve;
 var previousSeg;
 var p;
@@ -97,18 +99,18 @@ function drawPoly(poly, lineWidth, color) {
 function coxDeBoor(poly, t, r) {
 
     p = new Array();
-
     p.push(new Array());
-
     for (var i = r - order; i <= r; ++i) {
         p[0][i] = poly[i];
     }
     for (var j = 1; j <= order; j++) {
         p.push(new Array());
         for (var i = r - order + j; i <= r; ++i) {
-            var denominator = nodes[i - j + order + 1] - nodes[i];
-            var x = (t - nodes[i]) * p[j - 1][i].x + (nodes[i - j + order + 1] - t) * p[j - 1][i - 1].x;
-            var y = (t - nodes[i]) * p[j - 1][i].y + (nodes[i - j + order + 1] - t) * p[j - 1][i - 1].y;
+            var denominator = knots[i - j + order + 1] - knots[i];
+            
+            
+            var x = (t - knots[i]) * p[j - 1][i].x + (knots[i - j + order + 1] - t) * p[j - 1][i - 1].x;
+            var y = (t - knots[i]) * p[j - 1][i].y + (knots[i - j + order + 1] - t) * p[j - 1][i - 1].y;
 
             x /= denominator;
             y /= denominator;
@@ -118,18 +120,20 @@ function coxDeBoor(poly, t, r) {
             p[j][i] = point;
         }
     }
+    
     return p[order][r];
 }
 
 function processSubSpline(poly, r) {
 
-    var tbegin = nodes[r];
-    var tend = nodes[r + 1];
+    var tbegin = knots[r];
+    var tend = knots[r + 1];
     var t = tbegin;
-
     var step = (tend - tbegin) / (resolution - 1);
+    var curveBegin = (r - order) * resolution;
+    
     for (var i = 0; i < resolution; ++i) {
-        curve[i + ((r - order) * resolution)] = coxDeBoor(poly, t, r);
+        curve[i + curveBegin] = coxDeBoor(poly, t, r);
         t += step;
     }
 }
@@ -163,7 +167,7 @@ function initNodes(poly) {
 }
 
 function getPolyline(poly) {
-	var polyline = new Array();
+    var polyline = new Array();
     for (var i = 0; i < poly.length; ++i)
         polyline.push(poly[i]);
 
@@ -172,19 +176,19 @@ function getPolyline(poly) {
             polyline.push(poly[i]);
         }
     }
-	return polyline;
+    return polyline;
 }
 
 function processBsplineCurve(poly) {
-	
-	var polyline = getPolyline(poly);
-	
+
+    var polyline = getPolyline(poly);
+
     var subcurves = polyline.length - order;
-	curve = new Array();
+    curve = new Array();
 
     //init nodes
-    nodes = new Array();
-    initNodes(polyline);
+    //nodes = new Array();
+    //initNodes(polyline);
 
     //loop over each sub-spline
     for (var r = order; r < subcurves + order; ++r) {
@@ -194,20 +198,20 @@ function processBsplineCurve(poly) {
 
 function recalcCurve(poly, numPointShifted) {
 
-	var polyline = getPolyline(poly);
+    var polyline = getPolyline(poly);
 
-	var start = Math.max(numPointShifted, order);
-	var end = Math.min(numPointShifted + order * 2, polyline.length);
-	
-	// sauvegarde de la courbe précédente
-	if (previousSeg.length == 0)
-		previousSeg = curve.slice((start - order) * resolution, (end - order) * resolution)
-	
-	console.log("from : " + start + " to " + end);
-	
-	for (var range = start; range < end; ++range) {
-		processSubSpline(polyline, range);
-	}
+    var start = Math.max(numPointShifted, order);
+    var end = Math.min(numPointShifted + order * 2, polyline.length);
+
+    // sauvegarde de la courbe précédente
+    if (previousSeg.length == 0)
+        previousSeg = curve.slice((start - order) * resolution, (end - order) * resolution)
+
+    console.log("from : " + start + " to " + end);
+
+    for (var range = start; range < end; ++range) {
+        processSubSpline(polyline, range);
+    }
 }
 
 function delta(p1, p2) {
@@ -245,11 +249,11 @@ function draw() {
     if (points.length > order) {
         drawPoly(curve, 1, "rgb(0, 0, 0)");
     }
-	
-	if (previousSeg.length > 0) {
-		drawPoly(previousSeg, 1, "rgb(255, 0, 0)");
-	}
-	
+
+    if (previousSeg.length > 0) {
+        drawPoly(previousSeg, 1, "rgb(255, 0, 0)");
+    }
+
     drawPoints();
 }
 
@@ -260,29 +264,29 @@ function isCollidingHandle(point, handlePoint) {
             point.y < handlePoint.y + halfHandleSize;
 }
 
-$("canvas").bind('contextmenu', function(){
-	// prevent context menu from displaying
+$("canvas").bind('contextmenu', function() {
+    // prevent context menu from displaying
     return false;
 });
 
 $("canvas").mousedown(function(event) {
     point = getMousePos(event);
-	
-	previousSeg = [];
-	for (var i = 0; i < points.length; ++i) {
-		if (isCollidingHandle(point, points[i])) {
-			switch (event.which) {
-				case 1: // Left click
-					pointIndex = i;
-					dragging = true;
-				break;
-				case 3: // right click
-					selectWeight(i);
-				break;
-			}
-			break;
-		}
-	}    
+
+    previousSeg = [];
+    for (var i = 0; i < points.length; ++i) {
+        if (isCollidingHandle(point, points[i])) {
+            switch (event.which) {
+                case 1: // Left click
+                    pointIndex = i;
+                    dragging = true;
+                    break;
+                case 3: // right click
+                    selectWeight(i);
+                    break;
+            }
+            break;
+        }
+    }
 });
 
 $("canvas").mousemove(function(event) {
@@ -290,16 +294,32 @@ $("canvas").mousemove(function(event) {
         point = getMousePos(event);
         points[pointIndex] = point;
         if (points.length > order) {
-			recalcCurve(points, pointIndex);
+            recalcCurve(points, pointIndex);
         }
         draw();
     }
 });
 
+function updateKnots() {
+    $("#knots").html("<h2>Knots</h2>");
+    knots = new Array();
+    for(var i = 0; i < points.length + order + 1; ++i) {
+        var knotId = "knot" + i;
+        knots.push(i)
+        $("#knots").append("<label for=\"" + knotId + "\">Knot " + i + "</label><input id=\"" + knotId + "\" type=\"range\" min=\"0\" max=\"20\" value=\"" + i +"\" step=\".01\" oninput=\"updateKnot(" + i + ", this.value)\" /><br/>");
+    }
+}
+
+function updateKnot(index, value) {
+    console.debug(knots);
+    knots[index] = parseFloat(value);
+    updateAll();
+}
+
 $("canvas").mouseup(function(event) {
 
-	if (event.which == 3) // right click
-		return;
+    if (event.which === 3) // right click
+        return;
 
     point = getMousePos(event);
     if (dragging) {
@@ -308,37 +328,52 @@ $("canvas").mouseup(function(event) {
     }
     else {
         points.push(point);
-		updateWeight();
-		
-		if (points.length > order) {
-			processBsplineCurve(points);
-		}
+        weights.push(1);
+        totalWeight += 1;
+        updateWeight();
+        updateKnots();
+
+        if (points.length > order) {
+            processBsplineCurve(points);
+        }
     }
     draw();
 });
 
 function updateWeight() {
-	var text = "";
-	for(var numP = 0; numP < points.length; numP++)
-	{
-		var id = 'pWeight_' + numP;
-		text += '<label class="weight" for="' + id + '">Point ' + (numP + 1) + ' :</label><input type="number" class="weight" id="' + id + '" min="0" max="1" index="' + numP + '" step="0.1" value="' + weights[numP] + '"/>';
-	}
-	$("#rightscroll").html(text);
+    var text = "";
+    for (var numP = 0; numP < points.length; numP++)
+    {
+        var id = 'pWeight_' + numP;
+        text += '<label class="weight" for="' + id + '">Point ' + (numP + 1) + ' :</label><input type="number" class="weight" id="' + id + '" min="0" max="1" index="' + numP + '" step="0.1" value="' + weights[numP] + '"/><br/>';
+    }
+    $("#rightscroll").html(text);
 };
 
 function selectWeight(numPoint) {
-	$input = $("#pWeight_" + numPoint);
-	$input.addClass("selectedInput")
-	setTimeout(function() {
-		$input.removeClass("selectedInput");
-	}, 800);
+    $input = $("#pWeight_" + numPoint);
+    $input.addClass("selectedInput")
+    setTimeout(function() {
+        $input.removeClass("selectedInput");
+    }, 800);
 }
 
-$(document).on('change', "input.weight", function () {
-	$this = $(this);
-	var index = $this.attr('index');
-	weights[index] = $this.val();
+function sumWeights() {
+    totalWeight = 0;
+    for(var i = 0; i < weights.length; ++i) {
+        totalWeight += weights[i];
+    }
+}
+
+$(document).on('change', "input.weight", function() {
+    $this = $(this);
+    var index = $this.attr('index');
+    //update total
+    var lastWeight = weights[index];
+    var newWeight =  $this.val();
+    totalWeight += newWeight - lastWeight;
+    //update weight
+    weights[index] = newWeight;
 });
 
 $("#drawPolygon").change(function() {
@@ -366,37 +401,37 @@ function updateResolution(r) {
 
 $("#first").change(function() {
     firstEndpoint = !firstEndpoint;
-	
-	if (firstEndpoint)
-	{
-		cyclic = false;
-		$("#cyclic").attr("checked", cyclic);
-	}
-	
+
+    if (firstEndpoint)
+    {
+        cyclic = false;
+        $("#cyclic").attr("checked", cyclic);
+    }
+
     updateAll();
 });
 
 $("#last").change(function() {
     lastEndpoint = !lastEndpoint;
-	
-	if (lastEndpoint)
-	{
-		cyclic = false;
-		$("#cyclic").attr("checked", cyclic);
-	}
+
+    if (lastEndpoint)
+    {
+        cyclic = false;
+        $("#cyclic").attr("checked", cyclic);
+    }
     updateAll();
 });
 
 $("#cyclic").change(function() {
     cyclic = !cyclic;
-	
-	if (cyclic)
-	{
-		firstEndpoint = lastEndpoint = false;
-		
-		$("#first").attr("checked", false);
-		$("#last").attr("checked", false);
-	}
-	
+
+    if (cyclic)
+    {
+        firstEndpoint = lastEndpoint = false;
+
+        $("#first").attr("checked", false);
+        $("#last").attr("checked", false);
+    }
+
     updateAll();
 });
